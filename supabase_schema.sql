@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS meses_financeiros (
   usuario_id INTEGER NOT NULL DEFAULT 1,
   ano INTEGER NOT NULL,
   mes INTEGER NOT NULL,
-  renda_base NUMERIC(12,2) NOT NULL DEFAULT 700.00,
+  renda_base NUMERIC(12,2) NOT NULL DEFAULT 0.00,
   entrada_extra NUMERIC(12,2) NOT NULL DEFAULT 0.00,
   criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -112,3 +112,66 @@ GRANT ALL ON gastos TO anon;
 GRANT ALL ON gastos_fixos TO anon;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon;
+
+-- TABELA DE MESES (lookup)
+-- Use quando quiser ter nomes/ordem fixos de meses
+CREATE TABLE IF NOT EXISTS meses (
+  numero INTEGER PRIMARY KEY CHECK (numero BETWEEN 1 AND 12),
+  nome TEXT NOT NULL,
+  abreviado TEXT NOT NULL,
+  criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+INSERT INTO meses (numero, nome, abreviado)
+VALUES
+(1, 'Janeiro', 'Jan'),
+(2, 'Fevereiro', 'Fev'),
+(3, 'Março', 'Mar'),
+(4, 'Abril', 'Abr'),
+(5, 'Maio', 'Mai'),
+(6, 'Junho', 'Jun'),
+(7, 'Julho', 'Jul'),
+(8, 'Agosto', 'Ago'),
+(9, 'Setembro', 'Set'),
+(10, 'Outubro', 'Out'),
+(11, 'Novembro', 'Nov'),
+(12, 'Dezembro', 'Dez')
+ON CONFLICT (numero) DO NOTHING;
+
+ALTER TABLE meses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "permitir tudo meses_lookup" ON meses;
+
+CREATE POLICY "permitir tudo meses_lookup"
+ON meses
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+GRANT SELECT ON meses TO anon;
+
+-- TABELA DE ENTRADAS (receitas manuais)
+CREATE TABLE IF NOT EXISTS entradas (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id INTEGER NOT NULL DEFAULT 1,
+  descricao TEXT NOT NULL,
+  valor NUMERIC(12,2) NOT NULL CHECK (valor >= 0),
+  origem TEXT NULL,
+  quem_recebe TEXT NULL,
+  data_entrada DATE NOT NULL,
+  ano INTEGER NOT NULL,
+  mes INTEGER NOT NULL,
+  criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE entradas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "permitir tudo entradas" ON entradas;
+
+CREATE POLICY "permitir tudo entradas"
+ON entradas
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+GRANT ALL ON entradas TO anon;

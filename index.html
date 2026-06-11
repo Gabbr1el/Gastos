@@ -7,6 +7,25 @@
   <title>Controle Financeiro</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <meta name="theme-color" content="#ffffff">
+  <script>
+    (function(){
+      function setTheme(isDark){
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if(meta) meta.setAttribute('content', isDark ? '#000000' : '#ffffff');
+        try { document.documentElement.dataset.theme = isDark ? 'dark' : 'light'; } catch(e){}
+      }
+
+      var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+      if(mq){
+        setTheme(mq.matches);
+        if(mq.addEventListener) mq.addEventListener('change', function(e){ setTheme(e.matches); });
+        else if(mq.addListener) mq.addListener(function(e){ setTheme(e.matches); });
+      } else {
+        setTheme(false);
+      }
+    })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="web.js"></script>
 
@@ -20,8 +39,25 @@
 
       <div class="mes-row">
         <button onclick="mudaMes(-1)"><i class="ti ti-chevron-left"></i></button>
-        <span id="ml1"></span>
+
+        <div class="mes-display" id="mesDisplayHome" onclick="toggleMesPicker(this)">
+          <span id="ml1"></span>
+          <i class="ti ti-chevron-down" style="margin-left:8px;font-size:16px"></i>
+        </div>
+
         <button onclick="mudaMes(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+
+      <div id="mes-picker" class="mes-picker" style="display:none">
+        <div class="mp-year">
+          <button onclick="mpChangeYear(-1)"><i class="ti ti-chevron-left"></i></button>
+          <span id="mp-year-val"></span>
+          <button onclick="mpChangeYear(1)"><i class="ti ti-chevron-right"></i></button>
+        </div>
+        <div class="mp-grid" id="mp-grid"></div>
+        <div class="mp-actions">
+ 
+        </div>
       </div>
 
       <div class="saldo-card">
@@ -39,7 +75,7 @@
           <div class="val meu" id="tot-meu">R$ 0,00</div>
         </div>
         <div class="mini-card">
-          <div class="lbl">Da minha mãe</div>
+          <div class="lbl">Mãe</div>
           <div class="val mae" id="tot-mae">R$ 0,00</div>
         </div>
       </div>
@@ -47,28 +83,41 @@
       <div class="sec">categorias do mês</div>
       <div id="barras"></div>
 
-      <div class="sec">últimos gastos</div>
+      <div class="sec">últimos</div>
       <div id="lista-rec"></div>
 
-      <button class="btn-add" onclick="irPara('s-add')"><i class="ti ti-plus"></i>Registrar gasto</button>
+      <button class="btn-add" onclick="irPara('s-add')"><i class="ti ti-plus"></i>Registrar movimentação</button>
     </div>
 
     <div class="screen" id="s-hist">
       <div class="hdr"><h2>Histórico</h2></div>
       <div class="mes-row">
         <button onclick="mudaMes(-1)"><i class="ti ti-chevron-left"></i></button>
-        <span id="ml2"></span>
+
+        <div class="mes-display" id="mesDisplayHist" onclick="toggleMesPicker(this)">
+          <span id="ml2"></span>
+          <i class="ti ti-chevron-down" style="margin-left:8px;font-size:16px"></i>
+        </div>
+
         <button onclick="mudaMes(1)"><i class="ti ti-chevron-right"></i></button>
       </div>
+
+      <div class="tab-row">
+        <button class="tab active" id="tab-hist-tudo" onclick="filtroHist('tudo')">Tudo</button>
+        <button class="tab" id="tab-hist-gastos" onclick="filtroHist('gastos')">Gastos</button>
+        <button class="tab" id="tab-hist-entradas" onclick="filtroHist('entradas')">Entradas</button>
+      </div>
+
       <div id="lista-hist"></div>
     </div>
 
     <div class="screen" id="s-fixos">
-      <div class="hdr"><h2>Gastos fixos</h2></div>
+      <div class="hdr"><h2>valores fixos</h2></div>
 
       <div class="tab-row">
         <button class="tab active" id="tab-lista" onclick="abaFixos('lista')">Meus fixos</button>
-        <button class="tab" id="tab-add" onclick="abaFixos('add')">+ Novo fixo</button>
+        <button class="tab" id="tab-add-fixo-gasto" onclick="abaFixos('add-gasto')">+ Gasto fixo</button>
+        <button class="tab" id="tab-add-fixo-entrada" onclick="abaFixos('add-entrada')">+ Entrada fixa</button>
       </div>
 
       <div id="fixos-lista"></div>
@@ -84,16 +133,16 @@
           <input type="number" id="ff-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
         </div>
 
-        <div class="fg">
+        <div class="fg" id="ff-cat-wrap">
           <label class="fl">Categoria</label>
           <div class="cgrid" id="ff-cat"></div>
         </div>
 
-        <div class="fg">
+        <div class="fg" id="ff-quem-wrap">
           <label class="fl">Quem paga?</label>
           <div class="qgrid">
-            <button class="qbtn sel meu" id="ff-eu" onclick="fixoQuem('eu')">Eu, Gabriel</button>
-            <button class="qbtn" id="ff-mae" onclick="fixoQuem('mae')">Minha mãe</button>
+            <button class="qbtn sel meu" id="ff-eu" onclick="fixoQuem('eu')">Eu</button>
+            <button class="qbtn" id="ff-mae" onclick="fixoQuem('mae')">Mãe</button>
           </div>
         </div>
 
@@ -104,7 +153,15 @@
     <div class="screen" id="s-add">
       <div class="hdr">
         <button class="back" onclick="irPara('s-home')"><i class="ti ti-arrow-left"></i></button>
-        <h2>Registrar gasto</h2>
+        <h2>Registrar</h2>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Tipo</label>
+        <div class="qgrid">
+          <button class="qbtn sel meu" id="t-saida" onclick="selTipo('saida')"><i class="ti ti-arrow-down" style="margin-right:4px"></i>Saída</button>
+          <button class="qbtn" id="t-entrada" onclick="selTipo('entrada')"><i class="ti ti-arrow-up" style="margin-right:4px"></i>Entrada</button>
+        </div>
       </div>
 
       <div class="fg">
@@ -117,52 +174,43 @@
         <input type="number" id="f-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
       </div>
 
-      <div class="fg">
+      <div id="f-quem-wrap" class="fg">
         <label class="fl">Quem pagou?</label>
         <div class="qgrid">
-          <button class="qbtn sel meu" id="q-eu" onclick="selQuem('eu')">Eu, Gabriel</button>
-          <button class="qbtn" id="q-mae" onclick="selQuem('mae')">Minha mãe</button>
+          <button class="qbtn sel meu" id="q-eu" onclick="selQuem('eu')">Eu</button>
+          <button class="qbtn" id="q-mae" onclick="selQuem('mae')">Mãe</button>
         </div>
       </div>
 
-      <div class="fg">
+      <div id="f-cat-wrap" class="fg">
         <label class="fl">Categoria</label>
         <div class="cgrid" id="cat-grid"></div>
       </div>
 
-      <button class="bsalvar" onclick="salvarGasto()"><i class="ti ti-check"></i>Salvar</button>
+      <div id="f-parcelas-wrap" class="fg">
+        <label class="fl">Parcelas</label>
+        <div class="parcelas-row">
+          <button class="parc-btn" onclick="mudaParcelas(-1)"><i class="ti ti-minus"></i></button>
+          <span id="parc-val">1x</span>
+          <button class="parc-btn" onclick="mudaParcelas(1)"><i class="ti ti-plus"></i></button>
+        </div>
+        <div id="parc-info" class="parc-info" style="display:none"></div>
+      </div>
+
+      <button class="bsalvar" onclick="salvarMovimento()"><i class="ti ti-check"></i>Salvar</button>
     </div>
 
     <div class="screen" id="s-cfg">
       <div class="hdr"><h2>Configurações</h2></div>
 
-      <div class="sec">entrada deste mês</div>
+
 
       <div class="fg">
-        <label class="fl">Renda base, salva só para <span id="cfg-mes-nome"></span></label>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="inp-base" placeholder="700" style="flex:1" inputmode="decimal">
-          <button class="bsalvar" style="width:auto;padding:11px 14px;margin-top:0" onclick="salvarBase()">Salvar</button>
-        </div>
       </div>
 
-      <div class="fg">
-        <label class="fl">Entrada extra neste mes</label>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="inp-extra" placeholder="0,00" style="flex:1" inputmode="decimal">
-          <button class="bsalvar" style="width:auto;padding:11px 14px;margin-top:0" onclick="salvarExtra()">Salvar</button>
-        </div>
-      </div>
 
-      <div class="cfg-item">
-        <span class="cfg-lbl">Base atual</span>
-        <span class="cfg-val" id="cfg-base-val"></span>
-      </div>
 
-      <div class="cfg-item">
-        <span class="cfg-lbl">Extra atual</span>
-        <span class="cfg-val" id="cfg-extra-val"></span>
-      </div>
+   
 
       <div class="cfg-item" style="border:none;cursor:pointer;margin-top:.5rem" onclick="limparTudo()">
         <span class="cfg-lbl" style="color:var(--danger)">Apagar todos os dados</span>
