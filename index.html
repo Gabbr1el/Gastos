@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Controle Financeiro</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg2: #f5f5f4;
+      --bg3: #efefed;
+      --text: #1a1a19;
+      --text2: #6b6b68;
+      --border: rgba(0,0,0,0.12);
+      --border2: rgba(0,0,0,0.22);
+      --danger: #c0392b;
+      --danger-bg: #fdf0ee;
+      --warning: #b45309;
+      --warning-bg: #fef9ee;
+      --info: #1560a0;
+      --info-bg: #e6f1fb;
+      --radius: 10px;
+      --radius-sm: 7px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1b;
+        --bg2: #262625;
+        --bg3: #2e2e2d;
+        --text: #f0efe8;
+        --text2: #9a9a96;
+        --border: rgba(255,255,255,0.1);
+        --border2: rgba(255,255,255,0.2);
+        --danger: #e57373;
+        --danger-bg: #3b1c1c;
+        --warning: #f0a030;
+        --warning-bg: #332510;
+        --info: #60aaee;
+        --info-bg: #0c2a44;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg3);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 430px;
+      background: var(--bg);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .content { flex: 1; overflow-y: auto; padding-bottom: 70px; }
+
+    .screen { display: none; padding: 1rem; }
+    .screen.active { display: block; }
+
+    /* Header */
+    .header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; padding-top: 0.25rem; }
+    .header h2 { font-size: 18px; font-weight: 500; color: var(--text); }
+    .back-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text2); font-size: 22px;
+      padding: 0; display: flex; align-items: center;
+    }
+
+    /* Mês selector */
+    .mes-selector {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+    .mes-selector button {
+      background: none; border: none; cursor: pointer;
+      color: var(--text2); font-size: 22px;
+      display: flex; align-items: center;
+      padding: 4px;
+    }
+    .mes-selector span { font-size: 15px; font-weight: 500; color: var(--text); }
+
+    /* Cards */
+    .saldo-card {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .saldo-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+    .saldo-valor { font-size: 30px; font-weight: 500; color: var(--text); }
+    .saldo-valor.negativo { color: var(--danger); }
+
+    .mini-cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+    .mini-card {
+      background: var(--bg2);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+    }
+    .mini-card .label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+    .mini-card .valor { font-size: 17px; font-weight: 500; color: var(--text); }
+    .mini-card .valor.meu { color: var(--danger); }
+    .mini-card .valor.mae { color: var(--warning); }
+
+    /* Section title */
+    .section-title {
+      font-size: 12px; font-weight: 500;
+      color: var(--text2);
+      margin-bottom: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Botão adicionar */
+    .btn-add {
+      width: 100%; padding: 13px;
+      background: var(--bg);
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius-sm);
+      font-size: 15px; font-weight: 500;
+      color: var(--text); cursor: pointer;
+      display: flex; align-items: center;
+      justify-content: center; gap: 8px;
+      margin-bottom: 1.25rem;
+      margin-top: 0.5rem;
+    }
+    .btn-add:active { opacity: 0.6; }
+
+    /* Gasto item */
+    .gasto-item {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .gasto-icon {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      display: flex; align-items: center;
+      justify-content: center;
+      font-size: 17px; flex-shrink: 0;
+    }
+    .gasto-info { flex: 1; min-width: 0; }
+    .gasto-desc {
+      font-size: 14px; font-weight: 500;
+      color: var(--text);
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gasto-meta {
+      font-size: 12px; color: var(--text2);
+      margin-top: 2px; display: flex;
+      gap: 6px; align-items: center;
+    }
+    .badge {
+      font-size: 10px; padding: 2px 7px;
+      border-radius: 20px; font-weight: 500;
+    }
+    .badge.meu { background: var(--danger-bg); color: var(--danger); }
+    .badge.mae { background: var(--warning-bg); color: var(--warning); }
+    .gasto-valor {
+      font-size: 15px; font-weight: 500;
+      color: var(--text); white-space: nowrap;
+    }
+    .gasto-del {
+      background: none; border: none;
+      cursor: pointer; color: var(--text2);
+      font-size: 17px; padding: 4px;
+      display: flex; align-items: center;
+    }
+    .gasto-del:active { color: var(--danger); }
+
+    /* Barras */
+    .barra-wrap { margin-bottom: 10px; }
+    .barra-label {
+      display: flex; justify-content: space-between;
+      font-size: 13px; margin-bottom: 5px;
+      color: var(--text2);
+    }
+    .barra-bg {
+      background: var(--bg2);
+      border-radius: 4px; height: 7px; overflow: hidden;
+    }
+    .barra-fill { height: 7px; border-radius: 4px; transition: width 0.3s; }
+
+    /* Formulário */
+    .form-group { margin-bottom: 1rem; }
+    .form-label {
+      font-size: 13px; color: var(--text2);
+      margin-bottom: 6px; display: block;
+    }
+
+    input[type=text], input[type=number] {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px; color: var(--text);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=text]:focus, input[type=number]:focus {
+      border-color: var(--border2);
+    }
+
+    .quem-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px; margin-bottom: 0;
+    }
+    .quem-btn {
+      padding: 13px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg2);
+      cursor: pointer;
+      font-size: 14px; font-weight: 500;
+      color: var(--text); text-align: center;
+    }
+    .quem-btn.selected.meu {
+      border: 1.5px solid var(--danger);
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+    .quem-btn.selected.mae {
+      border: 1.5px solid var(--warning);
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 8px;
+    }
+    .cat-btn {
+      padding: 10px 8px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg2);
+      cursor: pointer;
+      display: flex; align-items: center;
+      gap: 8px;
+      font-size: 14px; color: var(--text);
+    }
+    .cat-btn.selected {
+      border: 1.5px solid var(--info);
+      background: var(--info-bg);
+      color: var(--info);
+    }
+
+    .btn-salvar {
+      width: 100%; padding: 14px;
+      background: var(--bg);
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius-sm);
+      font-size: 15px; font-weight: 500;
+      color: var(--text); cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    .btn-salvar:active { opacity: 0.6; }
+
+    /* Config */
+    .config-item {
+      display: flex; justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .config-label { font-size: 15px; color: var(--text); }
+    .config-val { font-size: 14px; color: var(--text2); }
+
+    /* Empty */
+    .empty {
+      text-align: center; color: var(--text2);
+      font-size: 14px; padding: 2rem 0;
+    }
+
+    /* Nav */
+    .nav-bar {
+      display: flex;
+      border-top: 0.5px solid var(--border);
+      position: fixed;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 100%; max-width: 430px;
+      background: var(--bg);
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .nav-btn {
+      flex: 1; padding: 12px 0 10px;
+      background: none; border: none;
+      cursor: pointer;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 3px;
+      font-size: 10px; color: var(--text2);
+    }
+    .nav-btn.active { color: var(--text); }
+    .nav-btn i { font-size: 23px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="content">
+
+    <!-- HOME -->
+    <div class="screen active" id="s-home">
+      <div class="mes-selector">
+        <button onclick="mudaMes(-1)" aria-label="mês anterior"><i class="ti ti-chevron-left"></i></button>
+        <span id="mes-label"></span>
+        <button onclick="mudaMes(1)" aria-label="próximo mês"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div class="saldo-card">
+        <div class="saldo-label">Saldo restante (seus R$700)</div>
+        <div class="saldo-valor" id="saldo-restante">R$ 700,00</div>
+      </div>
+      <div class="mini-cards">
+        <div class="mini-card">
+          <div class="label">Meus gastos</div>
+          <div class="valor meu" id="total-meu">R$ 0,00</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">Da minha mãe</div>
+          <div class="valor mae" id="total-mae">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="section-title">categorias do mês</div>
+      <div id="barras-cat"></div>
+      <div class="section-title" style="margin-top:1rem">últimos gastos</div>
+      <div id="lista-recente"></div>
+      <button class="btn-add" onclick="irPara('s-add')">
+        <i class="ti ti-plus" aria-hidden="true"></i> Registrar gasto
+      </button>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="screen" id="s-historico">
+      <div class="header"><h2>Histórico</h2></div>
+      <div class="mes-selector">
+        <button onclick="mudaMes(-1)" aria-label="mês anterior"><i class="ti ti-chevron-left"></i></button>
+        <span id="mes-label2"></span>
+        <button onclick="mudaMes(1)" aria-label="próximo mês"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div id="lista-historico"></div>
+    </div>
+
+    <!-- ADICIONAR -->
+    <div class="screen" id="s-add">
+      <div class="header">
+        <button class="back-btn" onclick="irPara('s-home')" aria-label="voltar">
+          <i class="ti ti-arrow-left"></i>
+        </button>
+        <h2>Registrar gasto</h2>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <input type="text" id="f-desc" placeholder="Ex: mercado, ifood, passagem..." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor (R$)</label>
+        <input type="number" id="f-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quem pagou?</label>
+        <div class="quem-grid">
+          <button class="quem-btn selected meu" id="q-eu" onclick="selecionaQuem('eu')">Eu (Gabriel)</button>
+          <button class="quem-btn" id="q-mae" onclick="selecionaQuem('mae')">Minha mãe</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoria</label>
+        <div class="cat-grid" id="cat-grid"></div>
+      </div>
+      <button class="btn-salvar" onclick="salvarGasto()">
+        <i class="ti ti-check" aria-hidden="true"></i> Salvar
+      </button>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div class="screen" id="s-config">
+      <div class="header"><h2>Configurações</h2></div>
+      <div class="config-item">
+        <span class="config-label">Salário do estágio</span>
+        <span class="config-val" id="cfg-salario">R$ 700</span>
+      </div>
+      <div style="padding: 12px 0 1rem;">
+        <label class="form-label">Alterar valor (R$)</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="inp-salario" placeholder="700" style="flex:1" inputmode="decimal" />
+          <button class="btn-salvar" style="width:auto;padding:12px 16px;margin-top:0" onclick="salvarSalario()">Salvar</button>
+        </div>
+      </div>
+      <div class="config-item" style="border:none;cursor:pointer" onclick="confirmarLimpar()">
+        <span class="config-label" style="color:var(--danger)">Apagar todos os dados</span>
+        <i class="ti ti-trash" style="color:var(--danger);font-size:18px" aria-hidden="true"></i>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <nav class="nav-bar">
+    <button class="nav-btn active" id="nav-home" onclick="irPara('s-home')">
+      <i class="ti ti-home" aria-hidden="true"></i>Início
+    </button>
+    <button class="nav-btn" id="nav-historico" onclick="irPara('s-historico')">
+      <i class="ti ti-list" aria-hidden="true"></i>Histórico
+    </button>
+    <button class="nav-btn" id="nav-config" onclick="irPara('s-config')">
+      <i class="ti ti-settings" aria-hidden="true"></i>Config
+    </button>
+  </nav>
+</div>
+
+<script>
+const CATS = [
+  { id:'alimentacao', label:'Alimentação', icon:'ti-shopping-cart', cor:'#1D9E75' },
+  { id:'transporte',  label:'Transporte',  icon:'ti-bus',           cor:'#378ADD' },
+  { id:'pessoal',     label:'Pessoal',     icon:'ti-user',          cor:'#7F77DD' },
+  { id:'saude',       label:'Saúde',       icon:'ti-heart',         cor:'#D85A30' },
+  { id:'lazer',       label:'Lazer',       icon:'ti-device-gamepad',cor:'#D4537E' },
+  { id:'outros',      label:'Outros',      icon:'ti-dots',          cor:'#888780' },
+];
+
+const STORAGE_KEY = 'fin_gabriel_v1';
+
+let state = { gastos: [], salario: 700 };
+let mesSel = new Date().getMonth();
+let anoSel  = new Date().getFullYear();
+let quemSel = 'eu';
+let catSel  = 'alimentacao';
+
+function carregarDados() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      state.gastos  = s.gastos  || [];
+      state.salario = s.salario || 700;
+    }
+  } catch(e) {}
+  renderAll();
+}
+
+function salvarDados() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+function nomeMes(m, a) {
+  return new Date(a, m, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+function gastosMes() {
+  return state.gastos.filter(g => {
+    const d = new Date(g.data);
+    return d.getMonth() === mesSel && d.getFullYear() === anoSel;
+  });
+}
+
+function fmt(v) {
+  return 'R$ ' + v.toFixed(2).replace('.', ',');
+}
+
+function mudaMes(delta) {
+  mesSel += delta;
+  if (mesSel < 0)  { mesSel = 11; anoSel--; }
+  if (mesSel > 11) { mesSel = 0;  anoSel++; }
+  renderAll();
+}
+
+function irPara(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const mapa = { 's-home':'nav-home','s-historico':'nav-historico','s-config':'nav-config' };
+  if (mapa[id]) document.getElementById(mapa[id]).classList.add('active');
+  if (id !== 's-add') renderAll();
+  document.querySelector('.content').scrollTop = 0;
+}
+
+function selecionaQuem(q) {
+  quemSel = q;
+  document.getElementById('q-eu').className  = 'quem-btn' + (q === 'eu'  ? ' selected meu' : '');
+  document.getElementById('q-mae').className = 'quem-btn' + (q === 'mae' ? ' selected mae' : '');
+}
+
+function renderCatGrid() {
+  const g = document.getElementById('cat-grid');
+  g.innerHTML = CATS.map(c =>
+    `<button class="cat-btn${catSel===c.id?' selected':''}" onclick="selCat('${c.id}')">
+      <i class="ti ${c.icon}" aria-hidden="true" style="font-size:18px"></i>${c.label}
+    </button>`
+  ).join('');
+}
+
+function selCat(id) { catSel = id; renderCatGrid(); }
+
+function salvarGasto() {
+  const desc  = document.getElementById('f-desc').value.trim();
+  const valor = parseFloat(document.getElementById('f-valor').value);
+  if (!desc || isNaN(valor) || valor <= 0) {
+    alert('Preencha a descrição e um valor válido.');
+    return;
+  }
+  state.gastos.push({
+    id: Date.now(), desc, valor,
+    quem: quemSel, cat: catSel,
+    data: new Date().toISOString()
+  });
+  salvarDados();
+  document.getElementById('f-desc').value  = '';
+  document.getElementById('f-valor').value = '';
+  quemSel = 'eu';
+  selecionaQuem('eu');
+  catSel = 'alimentacao';
+  renderCatGrid();
+  irPara('s-home');
+}
+
+function deletarGasto(id) {
+  if (!confirm('Remover este gasto?')) return;
+  state.gastos = state.gastos.filter(g => g.id !== id);
+  salvarDados();
+  renderAll();
+}
+
+function salvarSalario() {
+  const v = parseFloat(document.getElementById('inp-salario').value);
+  if (!isNaN(v) && v > 0) {
+    state.salario = v;
+    salvarDados();
+    renderAll();
+    document.getElementById('inp-salario').value = '';
+  }
+}
+
+function confirmarLimpar() {
+  if (confirm('Apagar todos os dados? Esta ação não pode ser desfeita.')) {
+    state.gastos = []; state.salario = 700;
+    salvarDados(); renderAll();
+  }
+}
+
+function listaHtml(lista) {
+  if (lista.length === 0) return '<p class="empty">Sem gastos neste mês</p>';
+  return lista.map(g => {
+    const cat = CATS.find(c => c.id === g.cat) || CATS[5];
+    const dia = new Date(g.data).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+    return `
+      <div class="gasto-item">
+        <div class="gasto-icon" style="background:${cat.cor}22">
+          <i class="ti ${cat.icon}" aria-hidden="true" style="color:${cat.cor};font-size:16px"></i>
+        </div>
+        <div class="gasto-info">
+          <div class="gasto-desc">${g.desc}</div>
+          <div class="gasto-meta">
+            <span class="badge ${g.quem === 'eu' ? 'meu' : 'mae'}">${g.quem === 'eu' ? 'Meu' : 'Mãe'}</span>
+            ${cat.label} · ${dia}
+          </div>
+        </div>
+        <div class="gasto-valor">${fmt(g.valor)}</div>
+        <button class="gasto-del" onclick="deletarGasto(${g.id})" aria-label="remover gasto">
+          <i class="ti ti-x" aria-hidden="true"></i>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+function renderAll() {
+  const gm       = gastosMes();
+  const totalMeu = gm.filter(g => g.quem === 'eu').reduce((a,g) => a+g.valor, 0);
+  const totalMae = gm.filter(g => g.quem === 'mae').reduce((a,g) => a+g.valor, 0);
+  const saldo    = state.salario - totalMeu;
+  const mesStr   = nomeMes(mesSel, anoSel);
+
+  document.getElementById('mes-label').textContent  = mesStr;
+  document.getElementById('mes-label2').textContent = mesStr;
+  document.getElementById('total-meu').textContent  = fmt(totalMeu);
+  document.getElementById('total-mae').textContent  = fmt(totalMae);
+  document.getElementById('cfg-salario').textContent = 'R$ ' + state.salario.toFixed(0);
+
+  const sEl = document.getElementById('saldo-restante');
+  sEl.textContent = fmt(saldo);
+  sEl.className   = 'saldo-valor' + (saldo < 0 ? ' negativo' : '');
+
+  const barras = document.getElementById('barras-cat');
+  if (totalMeu === 0) {
+    barras.innerHTML = '<p class="empty">Nenhum gasto registrado ainda</p>';
+  } else {
+    barras.innerHTML = CATS.map(c => {
+      const tot = gm.filter(g => g.quem === 'eu' && g.cat === c.id).reduce((a,g) => a+g.valor, 0);
+      if (tot === 0) return '';
+      const pct = Math.min(100, Math.round((tot / totalMeu) * 100));
+      return `<div class="barra-wrap">
+        <div class="barra-label"><span>${c.label}</span><span>${fmt(tot)}</span></div>
+        <div class="barra-bg"><div class="barra-fill" style="width:${pct}%;background:${c.cor}"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  const recentes = [...gm].sort((a,b) => b.id - a.id).slice(0, 5);
+  document.getElementById('lista-recente').innerHTML   = listaHtml(recentes);
+  document.getElementById('lista-historico').innerHTML = listaHtml([...gm].sort((a,b) => b.id - a.id));
+
+  renderCatGrid();
+}
+
+carregarDados();
+</script>
+</body>
+</html>
