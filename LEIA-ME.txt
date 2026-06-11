@@ -1,0 +1,50 @@
+﻿SISTEMA DE GASTOS - NETLIFY + SUPABASE
+
+PASSO 1:
+Crie uma conta ou acesse:
+https://supabase.com/
+
+PASSO 2:
+Crie um projeto no Supabase.
+
+PASSO 3:
+Abra:
+Supabase > SQL Editor
+
+PASSO 4:
+Copie todo o conteudo do arquivo:
+supabase_schema.sql
+
+Cole no SQL Editor e execute.
+
+PASSO 5:
+No Supabase, va em:
+Project Settings > API
+
+Copie:
+- Project URL
+- anon public key
+
+PASSO 6:
+Se voce nao informou esses dados ao rodar o BAT, abra o arquivo index.html e troque:
+
+COLE_AQUI_SUA_SUPABASE_URL
+COLE_AQUI_SUA_SUPABASE_ANON_KEY
+
+pelos dados reais do Supabase.
+
+PASSO 7:
+Para publicar no Netlify:
+
+Opcao A - pelo site:
+1. Acesse https://app.netlify.com/
+2. Abra o site sistema-de-gastos
+3. Va em Deploys
+4. Clique em "Deploy manually" ou arraste a pasta SistemaDeGastosNetlify
+5. Aguarde publicar
+
+Opcao B - novo site:
+1. Acesse https://app.netlify.com/drop
+2. Arraste a pasta SistemaDeGastosNetlify
+
+O sistema ficara funcionando no Netlify usando banco online Supabase.

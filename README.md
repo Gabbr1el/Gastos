@@ -1,2 +1,0 @@
-# Gastos
-Meus gastos

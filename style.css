@@ -1,0 +1,76 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#fff;--bg2:#f5f5f4;--bg3:#efefed;--text:#1a1a19;--text2:#6b6b68;
+      --border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);
+      --danger:#c0392b;--danger-bg:#fdf0ee;--warn:#b45309;--warn-bg:#fef9ee;
+      --info:#1560a0;--info-bg:#e6f1fb;--success:#166534;--success-bg:#dcfce7;
+      --r:10px;--rl:12px
+    }
+    @media(prefers-color-scheme:dark){
+      :root{
+        --bg:#1c1c1b;--bg2:#262625;--bg3:#2e2e2d;--text:#f0efe8;--text2:#9a9a96;
+        --border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.20);
+        --danger:#e57373;--danger-bg:#3b1c1c;--warn:#f0a030;--warn-bg:#332510;
+        --info:#60aaee;--info-bg:#0c2a44;--success:#4ade80;--success-bg:#14532d
+      }
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg3);color:var(--text);min-height:100dvh;display:flex;justify-content:center}
+    #app{width:100%;max-width:430px;background:var(--bg);min-height:100dvh;display:flex;flex-direction:column}
+    .content{flex:1;overflow-y:auto;padding-bottom:74px}
+    .screen{display:none;padding:1rem 1rem 0}
+    .screen.active{display:block}
+    .hdr{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem}
+    .hdr h2{font-size:18px;font-weight:500}
+    .back,.mes-row button{background:none;border:none;cursor:pointer;color:var(--text2);font-size:22px;display:flex;align-items:center;padding:4px}
+    .mes-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
+    .mes-row span{font-size:15px;font-weight:500}
+    .saldo-card,.mini-card{background:var(--bg2);border-radius:var(--rl);padding:1.1rem;margin-bottom:.9rem}
+    .saldo-lbl,.mini-card .lbl{font-size:11px;color:var(--text2);margin-bottom:3px}
+    .saldo-val{font-size:28px;font-weight:500}
+    .saldo-val.neg{color:var(--danger)}
+    .saldo-sub{font-size:12px;color:var(--text2);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+    .saldo-sub span{display:flex;align-items:center;gap:3px}
+    .mini-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:1rem}
+    .mini-card{padding:.7rem;margin:0}
+    .mini-card .val{font-size:16px;font-weight:500}
+    .mini-card .meu{color:var(--danger)}
+    .mini-card .mae{color:var(--warn)}
+    .sec{font-size:11px;font-weight:500;color:var(--text2);margin:1rem 0 8px;letter-spacing:.04em;text-transform:uppercase}
+    .btn-add,.bsalvar{width:100%;padding:12px;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin:1rem 0 .5rem}
+    .item{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r);padding:.7rem .9rem;margin-bottom:7px;display:flex;align-items:center;gap:11px}
+    .item-ico{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    .item-info{flex:1;min-width:0}
+    .item-desc{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .item-meta{font-size:11px;color:var(--text2);margin-top:2px;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+    .badge{font-size:10px;padding:2px 6px;border-radius:20px;font-weight:500}
+    .badge.meu{background:var(--danger-bg);color:var(--danger)}
+    .badge.mae{background:var(--warn-bg);color:var(--warn)}
+    .badge.fixo{background:var(--success-bg);color:var(--success)}
+    .item-val{font-size:14px;font-weight:500;white-space:nowrap}
+    .item-del{background:none;border:none;cursor:pointer;color:var(--text2);font-size:16px;padding:4px;display:flex}
+    .barra-wrap{margin-bottom:9px}
+    .barra-lbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:var(--text2)}
+    .barra-bg{background:var(--bg2);border-radius:4px;height:7px;overflow:hidden}
+    .barra-fill{height:7px;border-radius:4px;transition:width .3s}
+    .fg{margin-bottom:.9rem}
+    .fl{font-size:13px;color:var(--text2);margin-bottom:5px;display:block}
+    input{width:100%;padding:10px 11px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);font-size:15px;color:var(--text);outline:none}
+    .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .qbtn{padding:12px;border:.5px solid var(--border);border-radius:var(--r);background:var(--bg2);cursor:pointer;font-size:14px;font-weight:500;color:var(--text);text-align:center}
+    .qbtn.sel.meu{border:1.5px solid var(--danger);background:var(--danger-bg);color:var(--danger)}
+    .qbtn.sel.mae{border:1.5px solid var(--warn);background:var(--warn-bg);color:var(--warn)}
+    .cgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .cbtn{padding:9px 7px;border:.5px solid var(--border);border-radius:var(--r);background:var(--bg2);cursor:pointer;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text)}
+    .cbtn.sel{border:1.5px solid var(--info);background:var(--info-bg);color:var(--info)}
+    .cfg-item{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:.5px solid var(--border)}
+    .cfg-lbl{font-size:15px}
+    .cfg-val{font-size:13px;color:var(--text2)}
+    .empty{text-align:center;color:var(--text2);font-size:13px;padding:1.5rem 0}
+    .tab-row{display:flex;gap:6px;margin-bottom:1rem}
+    .tab{flex:1;padding:8px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;text-align:center}
+    .tab.active{background:var(--bg);border-color:var(--border2);color:var(--text)}
+    .nav{display:flex;border-top:.5px solid var(--border);position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--bg);z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
+    .nbtn{flex:1;padding:11px 0 9px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--text2)}
+    .nbtn.active{color:var(--text)}
+    .nbtn i{font-size:22px}
+    .erro-box{background:var(--danger-bg);color:var(--danger);padding:12px;border-radius:10px;font-size:13px;margin-bottom:12px}
