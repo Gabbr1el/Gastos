@@ -329,6 +329,9 @@ async function mudaMes(d) {
 }
 
 async function irPara(id) {
+  // se estava editando e saiu da tela de add, reseta
+  if (_editandoId && id !== "s-add") resetarTelaAdd();
+
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 
@@ -774,7 +777,7 @@ function itemHtml(g) {
     if (isEntradaFixa && g.fim_ano) {
       const totalMeses = (g.fim_ano - g.inicio_ano) * 12 + (g.fim_mes - g.inicio_mes) + 1;
       const parcelaAtual = (anoSel - g.inicio_ano) * 12 + (mesSel + 1 - g.inicio_mes) + 1;
-      terminoStr = `Parcela: ${parcelaAtual}/${totalMeses}`;
+      terminoStr = `Parcela ${parcelaAtual}/${totalMeses}`;
     } else if (isEntradaFixa) {
       terminoStr = "permanente";
     } else {
@@ -782,24 +785,28 @@ function itemHtml(g) {
     }
 
     const deleteFn = isEntradaFixa ? "deletarFixo" : "deletarEntrada";
+    const editFn = isEntradaFixa ? "editarFixo" : "editarEntrada";
 
     return `
-      <div class="item">
-        <div class="item-ico" style="background:#072030">
-          <i class="ti ti-arrow-up" style="color:#60a5fa;font-size:15px"></i>
+      <div class="item-wrap">
+        <div class="item-actions">
+          <button class="item-act-edit" onclick="${editFn}(${g.id})"><i class="ti ti-pencil"></i></button>
+          <button class="item-act-del" onclick="${deleteFn}(${g.id})"><i class="ti ti-trash"></i></button>
         </div>
-        <div class="item-info">
-          <div class="item-desc">${esc(g.descricao)}</div>
-          <div class="item-meta">
-            <span class="badge entrada">entrada</span>
-            ${isEntradaFixa ? `<span class="badge fixo">fixo</span>` : ""}
-            ${terminoStr}
+        <div class="item" onclick="toggleItemSwipe(this)">
+          <div class="item-ico" style="background:#072030">
+            <i class="ti ti-arrow-up" style="color:#60a5fa;font-size:15px"></i>
           </div>
+          <div class="item-info">
+            <div class="item-desc">${esc(g.descricao)}</div>
+            <div class="item-meta">
+              <span class="badge entrada">entrada</span>
+              ${isEntradaFixa ? `<span class="badge fixo">fixo</span>` : ""}
+              ${terminoStr}
+            </div>
+          </div>
+          <div class="item-val" style="color:var(--success)">+${fmt(g.valor)}</div>
         </div>
-        <div class="item-val" style="color:var(--success)">+${fmt(g.valor)}</div>
-        <button class="item-del" onclick="${deleteFn}(${g.id})">
-          <i class="ti ti-x"></i>
-        </button>
       </div>
     `;
   }
@@ -825,26 +832,31 @@ function itemHtml(g) {
   const parcelaStr = parcelaMatch ? ` · Parcela ${parcelaMatch[1]}` : "";
   const descSemParcela = parcelaMatch ? g.descricao.replace(/\s*\(\d+\/\d+\)$/, "") : g.descricao;
 
+  const editFnGasto = isFixo ? "editarFixo" : "editarGasto";
+  const deleteFnGasto = isFixo ? "deletarFixo" : "deletarGasto";
+
   return `
-    <div class="item">
-      <div class="item-ico" style="background:${esc(c.cor)}22">
-        <i class="ti ${esc(c.icone)}" style="color:${esc(c.cor)};font-size:15px"></i>
+    <div class="item-wrap">
+      <div class="item-actions">
+        <button class="item-act-edit" onclick="${editFnGasto}(${g.id})"><i class="ti ti-pencil"></i></button>
+        <button class="item-act-del" onclick="${deleteFnGasto}(${g.id})"><i class="ti ti-trash"></i></button>
       </div>
-
-      <div class="item-info">
-        <div class="item-desc">${esc(descSemParcela)}</div>
-        <div class="item-meta">
-          <span class="badge ${g.quem_pagou === "eu" ? "meu" : "mae"}">${g.quem_pagou === "eu" ? "Meu" : "Mãe"}</span>
-          ${isFixo ? `<span class="badge fixo">fixo</span>` : ""}
-          ${esc(c.nome)}${g.data_gasto ? " - " + dia : ""}${terminoGasto}${parcelaStr}
+      <div class="item" onclick="toggleItemSwipe(this)">
+        <div class="item-ico" style="background:${esc(c.cor)}22">
+          <i class="ti ${esc(c.icone)}" style="color:${esc(c.cor)};font-size:15px"></i>
         </div>
+
+        <div class="item-info">
+          <div class="item-desc">${esc(descSemParcela)}</div>
+          <div class="item-meta">
+            <span class="badge ${g.quem_pagou === "eu" ? "meu" : "mae"}">${g.quem_pagou === "eu" ? "Meu" : "Mãe"}</span>
+            ${isFixo ? `<span class="badge fixo">fixo</span>` : ""}
+            ${esc(c.nome)}${g.data_gasto ? " - " + dia : ""}${terminoGasto}${parcelaStr}
+          </div>
+        </div>
+
+        <div class="item-val" style="color:var(--danger)">${fmt(g.valor)}</div>
       </div>
-
-      <div class="item-val" style="color:var(--danger)">${fmt(g.valor)}</div>
-
-      <button class="item-del" onclick="${isFixo ? "deletarFixo" : "deletarGasto"}(${g.id})">
-        <i class="ti ti-x"></i>
-      </button>
     </div>
   `;
 }
@@ -1013,3 +1025,215 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// --- Swipe / slide para revelar ações ---
+function toggleItemSwipe(itemEl) {
+  const wrap = itemEl.closest('.item-wrap');
+  if (!wrap) return;
+
+  const isOpen = wrap.classList.contains('swiped');
+
+  // fecha todos os outros
+  document.querySelectorAll('.item-wrap.swiped').forEach(w => w.classList.remove('swiped'));
+
+  if (!isOpen) wrap.classList.add('swiped');
+}
+
+// fecha ao clicar fora
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.item-wrap')) return;
+  document.querySelectorAll('.item-wrap.swiped').forEach(w => w.classList.remove('swiped'));
+});
+
+// --- ID em edição (null = criando novo) ---
+let _editandoId = null;
+let _editandoTabela = null; // "gastos" | "gastos_fixos" | "entradas"
+
+// ── Editar gasto variável ──────────────────────────────────────────────────
+async function editarGasto(id) {
+  await getCategorias();
+  const rows = await supa(sFrom("gastos").select("*").eq("id", id).eq("usuario_id", USUARIO_ID).limit(1));
+  if (!rows || !rows[0]) return;
+  const g = rows[0];
+
+  _editandoId = id;
+  _editandoTabela = "gastos";
+
+  // detecta parcelas pelo sufixo "(N/T)"
+  const parcelaMatch = g.descricao ? g.descricao.match(/\((\d+)\/(\d+)\)$/) : null;
+  const descLimpa = parcelaMatch ? g.descricao.replace(/\s*\(\d+\/\d+\)$/, "") : g.descricao;
+
+  document.getElementById("f-desc").value = descLimpa;
+  document.getElementById("f-valor").value = g.valor;
+
+  tipoMovSel = "saida";
+  quemSel = g.quem_pagou || "eu";
+  catSel = g.categoria_id || "alimentacao";
+  parcelasSel = 1; // edita só esta parcela
+
+  selTipo("saida");
+  selQuem(quemSel);
+  atualizaParcelas();
+  renderCatGrid("cat-grid", catSel, "selCat");
+
+  // muda o header e o botão
+  document.querySelector("#s-add .hdr h2").textContent = "Editar gasto";
+  document.querySelector("#s-add .bsalvar").innerHTML = "<i class='ti ti-check'></i>Salvar alterações";
+  document.querySelector("#s-add .bsalvar").onclick = salvarEdicaoGasto;
+
+  irParaSemReset("s-add");
+}
+
+async function salvarEdicaoGasto() {
+  if (!_editandoId) return;
+  const desc = document.getElementById("f-desc").value.trim();
+  const valor = parseFloat(document.getElementById("f-valor").value);
+  if (!desc || isNaN(valor) || valor <= 0) { alert("Preencha descrição e valor."); return; }
+
+  await supa(sFrom("gastos").update({
+    descricao: desc,
+    valor,
+    quem_pagou: quemSel,
+    categoria_id: catSel
+  }).eq("id", _editandoId).eq("usuario_id", USUARIO_ID));
+
+  resetarTelaAdd();
+  await irPara("s-home");
+}
+
+// ── Editar entrada manual ──────────────────────────────────────────────────
+async function editarEntrada(id) {
+  const rows = await supa(sFrom("entradas").select("*").eq("id", id).eq("usuario_id", USUARIO_ID).limit(1));
+  if (!rows || !rows[0]) return;
+  const g = rows[0];
+
+  _editandoId = id;
+  _editandoTabela = "entradas";
+
+  document.getElementById("f-desc").value = g.descricao;
+  document.getElementById("f-valor").value = g.valor;
+
+  tipoMovSel = "entrada";
+  selTipo("entrada");
+  parcelasSel = 1;
+  atualizaParcelas();
+
+  document.querySelector("#s-add .hdr h2").textContent = "Editar entrada";
+  document.querySelector("#s-add .bsalvar").innerHTML = "<i class='ti ti-check'></i>Salvar alterações";
+  document.querySelector("#s-add .bsalvar").onclick = salvarEdicaoEntrada;
+
+  irParaSemReset("s-add");
+}
+
+async function salvarEdicaoEntrada() {
+  if (!_editandoId) return;
+  const desc = document.getElementById("f-desc").value.trim();
+  const valor = parseFloat(document.getElementById("f-valor").value);
+  if (!desc || isNaN(valor) || valor <= 0) { alert("Preencha descrição e valor."); return; }
+
+  await supa(sFrom("entradas").update({ descricao: desc, valor })
+    .eq("id", _editandoId).eq("usuario_id", USUARIO_ID));
+
+  resetarTelaAdd();
+  await irPara("s-home");
+}
+
+// ── Editar fixo (gasto fixo ou entrada fixa) ──────────────────────────────
+async function editarFixo(id) {
+  await getCategorias();
+  const rows = await supa(sFrom("gastos_fixos").select("*").eq("id", id).eq("usuario_id", USUARIO_ID).limit(1));
+  if (!rows || !rows[0]) return;
+  const g = rows[0];
+
+  _editandoId = id;
+  _editandoTabela = "gastos_fixos";
+
+  const isEntrada = g.quem_pagou === null || g.quem_pagou === undefined;
+
+  // preenche campos do form de fixos
+  document.getElementById("ff-desc").value = g.descricao;
+  document.getElementById("ff-valor").value = g.valor;
+
+  if (!isEntrada) {
+    fixoQuemSel = g.quem_pagou || "eu";
+    fixoCatSel = g.categoria_id || "moradia";
+    fixoQuem(fixoQuemSel);
+    renderCatGrid("ff-cat", fixoCatSel, "selFixoCat");
+  }
+
+  // duração
+  if (g.fim_ano) {
+    // calcula quantos meses restam a partir do mês atual
+    const mesesTotal = (g.fim_ano - anoSel) * 12 + (g.fim_mes - mesBanco()) + 1;
+    fixoMesesSel = Math.max(1, mesesTotal);
+    fixoDuracaoSel = "meses";
+  } else {
+    fixoDuracaoSel = "permanente";
+    fixoMesesSel = 1;
+  }
+  fixoDuracao(fixoDuracaoSel);
+  atualizaFixoMesesInfo();
+
+  // muda botão salvar para editar
+  const btnSalvar = document.querySelector("#fixos-form .bsalvar");
+  btnSalvar.innerHTML = "<i class='ti ti-check'></i>Salvar alterações";
+  btnSalvar.onclick = salvarEdicaoFixo;
+
+  // navega para a aba certa
+  await irPara("s-fixos");
+  abaFixos(isEntrada ? "add-entrada" : "add-gasto");
+}
+
+async function salvarEdicaoFixo() {
+  if (!_editandoId) return;
+  const desc = document.getElementById("ff-desc").value.trim();
+  const valor = parseFloat(document.getElementById("ff-valor").value);
+  if (!desc || isNaN(valor) || valor <= 0) { alert("Preencha descrição e valor."); return; }
+
+  let fimAno = null, fimMes = null;
+  if (fixoDuracaoSel === "meses") {
+    let m = mesBanco() + fixoMesesSel - 1;
+    let a = anoSel;
+    while (m > 12) { m -= 12; a++; }
+    fimAno = a; fimMes = m;
+  }
+
+  const rows = await supa(sFrom("gastos_fixos").select("quem_pagou").eq("id", _editandoId).limit(1));
+  const isEntrada = rows && rows[0] && (rows[0].quem_pagou === null || rows[0].quem_pagou === undefined);
+
+  const upd = { descricao: desc, valor, fim_ano: fimAno, fim_mes: fimMes };
+  if (!isEntrada) { upd.quem_pagou = fixoQuemSel; upd.categoria_id = fixoCatSel; }
+
+  await supa(sFrom("gastos_fixos").update(upd).eq("id", _editandoId).eq("usuario_id", USUARIO_ID));
+
+  // restaura botão original
+  const btnSalvar = document.querySelector("#fixos-form .bsalvar");
+  btnSalvar.innerHTML = "<i class='ti ti-check'></i>Salvar fixo";
+  btnSalvar.onclick = salvarFixo;
+  _editandoId = null;
+
+  abaFixos("lista");
+  await renderAll();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function irParaSemReset(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".nbtn").forEach(b => b.classList.remove("active"));
+  document.querySelector(".content").scrollTop = 0;
+}
+
+function resetarTelaAdd() {
+  _editandoId = null;
+  _editandoTabela = null;
+  document.getElementById("f-desc").value = "";
+  document.getElementById("f-valor").value = "";
+  tipoMovSel = "saida"; quemSel = "eu"; catSel = "alimentacao"; parcelasSel = 1;
+  selTipo("saida"); selQuem("eu"); atualizaParcelas();
+  renderCatGrid("cat-grid", catSel, "selCat");
+  document.querySelector("#s-add .hdr h2").textContent = "Registrar";
+  const btn = document.querySelector("#s-add .bsalvar");
+  btn.innerHTML = "<i class='ti ti-check'></i>Salvar";
+  btn.onclick = salvarMovimento;
+}
