@@ -603,20 +603,84 @@ async function salvarMovimento() {
 async function deletarGasto(id) {
   if (!confirm("Remover este gasto?")) return;
 
-  await supa(
+  const rows = await supa(
     sFrom("gastos")
-      .delete()
+      .select("*")
       .eq("id", id)
       .eq("usuario_id", USUARIO_ID)
+      .limit(1)
   );
+
+  if (!rows.length) return;
+
+  const gasto = rows[0];
+
+  const parcelaMatch = gasto.descricao.match(/\((\d+)\/(\d+)\)$/);
+
+  if (!parcelaMatch) {
+    await supa(
+      sFrom("gastos")
+        .delete()
+        .eq("id", id)
+        .eq("usuario_id", USUARIO_ID)
+    );
+
+    await renderAll();
+    return;
+  }
+
+  const parcelaAtual = parseInt(parcelaMatch[1]);
+  const totalParcelas = parseInt(parcelaMatch[2]);
+
+  const descBase = gasto.descricao.replace(
+    /\s*\(\d+\/\d+\)$/,
+    ""
+  );
+
+  const serie = await supa(
+    sFrom("gastos")
+      .select("id,descricao")
+      .eq("usuario_id", USUARIO_ID)
+      .ilike("descricao", `%/${totalParcelas})`)
+  );
+
+  const idsExcluir = serie
+    .filter(item => {
+      const m = item.descricao.match(/\((\d+)\/(\d+)\)$/);
+
+      if (!m) return false;
+
+      const base = item.descricao.replace(
+        /\s*\(\d+\/\d+\)$/,
+        ""
+      );
+
+      return (
+        base === descBase &&
+        parseInt(m[1]) >= parcelaAtual
+      );
+    })
+    .map(item => item.id);
+
+  for (const itemId of idsExcluir) {
+    await supa(
+      sFrom("gastos")
+        .delete()
+        .eq("id", itemId)
+        .eq("usuario_id", USUARIO_ID)
+    );
+  }
 
   await renderAll();
 }
 
 let _salvandoFixo = false;
 async function salvarFixo() {
+  // se estiver editando um fixo existente
+  if (_editandoFixoId) { await salvarEdicaoFixo(); return; }
   if (_salvandoFixo) return;
   _salvandoFixo = true;
+  console.log("[salvarFixo] criando novo, _editandoFixoId=", _editandoFixoId);
 
   try {
   const desc = document.getElementById("ff-desc").value.trim();
@@ -1017,6 +1081,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const fValor = document.getElementById("f-valor");
   if (fValor) fValor.addEventListener("input", atualizaParcelas);
 
+  // conecta botão salvar fixo (sem onclick no HTML)
+  const btnSalvarFixo = document.getElementById("btn-salvar-fixo");
+  if (btnSalvarFixo) btnSalvarFixo.addEventListener("click", salvarFixo);
+
   if (configurado()) {
     renderAll().catch(err => {
       console.error('Erro ao executar renderAll:', err);
@@ -1048,6 +1116,7 @@ document.addEventListener('click', function(e) {
 // --- ID em edição (null = criando novo) ---
 let _editandoId = null;
 let _editandoTabela = null; // "gastos" | "gastos_fixos" | "entradas"
+let _editandoFixoId = null; // separado para não ser zerado pelo resetarTelaAdd
 
 // ── Editar gasto variável ──────────────────────────────────────────────────
 async function editarGasto(id) {
@@ -1064,12 +1133,22 @@ async function editarGasto(id) {
   const descLimpa = parcelaMatch ? g.descricao.replace(/\s*\(\d+\/\d+\)$/, "") : g.descricao;
 
   document.getElementById("f-desc").value = descLimpa;
+
+if (parcelaMatch) {
+  const totalParcelas = parseInt(parcelaMatch[2]);
+  document.getElementById("f-valor").value =
+    (g.valor * totalParcelas).toFixed(2);
+} else {
   document.getElementById("f-valor").value = g.valor;
+}
 
   tipoMovSel = "saida";
   quemSel = g.quem_pagou || "eu";
   catSel = g.categoria_id || "alimentacao";
-  parcelasSel = 1; // edita só esta parcela
+  // detecta total de parcelas restantes para pré-preencher o campo
+  parcelasSel = parcelaMatch
+    ? parseInt(parcelaMatch[2])
+    : 1;
 
   selTipo("saida");
   selQuem(quemSel);
@@ -1090,12 +1169,94 @@ async function salvarEdicaoGasto() {
   const valor = parseFloat(document.getElementById("f-valor").value);
   if (!desc || isNaN(valor) || valor <= 0) { alert("Preencha descrição e valor."); return; }
 
-  await supa(sFrom("gastos").update({
-    descricao: desc,
-    valor,
-    quem_pagou: quemSel,
-    categoria_id: catSel
-  }).eq("id", _editandoId).eq("usuario_id", USUARIO_ID));
+  // busca o registro atual para saber descrição original e detectar série de parcelas
+  const rowsAtual = await supa(sFrom("gastos").select("*").eq("id", _editandoId).eq("usuario_id", USUARIO_ID).limit(1));
+  const gAtual = rowsAtual && rowsAtual[0];
+  
+
+  const parcelaMatchAtual = gAtual && gAtual.descricao ? gAtual.descricao.match(/\((\d+)\/(\d+)\)$/) : null;
+  const nAtual  = parcelaMatchAtual ? parseInt(parcelaMatchAtual[1]) : 1; // índice desta parcela
+  const totAtual = parcelaMatchAtual ? parseInt(parcelaMatchAtual[2]) : 1; // total anterior
+  
+  const valorOriginalSerie =
+    parcelaMatchAtual
+      ? (gAtual.valor * totAtual)
+      : valor;
+  const descBase = parcelaMatchAtual ? gAtual.descricao.replace(/\s*\(\d+\/\d+\)$/, "") : (gAtual ? gAtual.descricao : desc);
+
+  if (parcelasSel === 1 && totAtual === 1) {
+    // sem parcelas — update simples
+    await supa(sFrom("gastos").update({
+      descricao: desc,
+      valor,
+      quem_pagou: quemSel,
+      categoria_id: catSel
+    }).eq("id", _editandoId).eq("usuario_id", USUARIO_ID));
+
+  } else if (parcelasSel > 1 || totAtual > 1) {
+    // tem parcelas: apaga as parcelas futuras desta série (índice >= nAtual) e recria
+    // busca todas as parcelas da mesma série pelo nome base e total original
+    const sufixoPattern = `(${nAtual}/${totAtual})`;
+    const todaSerie = await supa(
+      sFrom("gastos")
+        .select("id,descricao,ano,mes")
+        .eq("usuario_id", USUARIO_ID)
+        .ilike("descricao", `%/${totAtual})`)
+    );
+
+    // filtra só as da mesma série (mesmo descBase) com índice >= nAtual
+    const futuras = (todaSerie || []).filter(r => {
+      const m = r.descricao ? r.descricao.match(/\((\d+)\/(\d+)\)$/) : null;
+      if (!m) return false;
+      const base = r.descricao.replace(/\s*\(\d+\/\d+\)$/, "");
+      return base === descBase && parseInt(m[1]) >= nAtual;
+    });
+
+    // apaga as futuras
+    for (const r of futuras) {
+      await supa(sFrom("gastos").delete().eq("id", r.id).eq("usuario_id", USUARIO_ID));
+    }
+
+    // recria a partir do mês do registro atual
+    const valorBase = parcelaMatchAtual
+  ? (gAtual.valor * totAtual)
+  : valor;
+
+const valorParcela = parseFloat(
+  (valorBase / parcelasSel).toFixed(2)
+);
+    const diaHoje = gAtual ? parseInt((gAtual.data_gasto || "").split("-")[2] || 1) : new Date().getDate();
+    const anoBase = gAtual ? gAtual.ano : anoSel;
+    const mesBase = gAtual ? gAtual.mes : mesBanco();
+
+    const inserts = [];
+    for (let i = 0; i < parcelasSel; i++) {
+      let m = mesBase + i;
+      let a = anoBase;
+      while (m > 12) { m -= 12; a++; }
+      const data = `${a}-${String(m).padStart(2,"0")}-${String(diaHoje).padStart(2,"0")}`;
+      const sufixo = parcelasSel > 1 ? ` (${nAtual + i}/${nAtual + parcelasSel - 1})` : "";
+      inserts.push({
+        usuario_id: USUARIO_ID,
+        descricao: desc + sufixo,
+        valor: valorParcela,
+        quem_pagou: quemSel,
+        categoria_id: catSel,
+        data_gasto: data,
+        ano: a,
+        mes: m
+      });
+    }
+    if (totAtual === 1) {
+    await supa(
+    sFrom("gastos")
+      .delete()
+      .eq("id", _editandoId)
+      .eq("usuario_id", USUARIO_ID)
+  );
+}
+    await supa(sFrom("gastos").insert(inserts));
+  }
 
   resetarTelaAdd();
   await irPara("s-home");
@@ -1145,12 +1306,16 @@ async function editarFixo(id) {
   if (!rows || !rows[0]) return;
   const g = rows[0];
 
-  _editandoId = id;
-  _editandoTabela = "gastos_fixos";
-
   const isEntrada = g.quem_pagou === null || g.quem_pagou === undefined;
 
-  // preenche campos do form de fixos
+  // navega primeiro — renderAll vai rodar dentro do irPara
+  await irPara("s-fixos");
+
+  _editandoFixoId = id;
+  console.log("[editarFixo] _editandoFixoId setado para", id);
+  abaFixos(isEntrada ? "add-entrada" : "add-gasto");
+
+  // preenche campos DEPOIS da navegação (renderAll já rodou)
   document.getElementById("ff-desc").value = g.descricao;
   document.getElementById("ff-valor").value = g.valor;
 
@@ -1163,7 +1328,6 @@ async function editarFixo(id) {
 
   // duração
   if (g.fim_ano) {
-    // calcula quantos meses restam a partir do mês atual
     const mesesTotal = (g.fim_ano - anoSel) * 12 + (g.fim_mes - mesBanco()) + 1;
     fixoMesesSel = Math.max(1, mesesTotal);
     fixoDuracaoSel = "meses";
@@ -1173,19 +1337,11 @@ async function editarFixo(id) {
   }
   fixoDuracao(fixoDuracaoSel);
   atualizaFixoMesesInfo();
-
-  // muda botão salvar para editar
-  const btnSalvar = document.querySelector("#fixos-form .bsalvar");
-  btnSalvar.innerHTML = "<i class='ti ti-check'></i>Salvar alterações";
-  btnSalvar.onclick = salvarEdicaoFixo;
-
-  // navega para a aba certa
-  await irPara("s-fixos");
-  abaFixos(isEntrada ? "add-entrada" : "add-gasto");
 }
 
 async function salvarEdicaoFixo() {
-  if (!_editandoId) return;
+  console.log("[salvarEdicaoFixo] _editandoFixoId=", _editandoFixoId);
+  if (!_editandoFixoId) return;
   const desc = document.getElementById("ff-desc").value.trim();
   const valor = parseFloat(document.getElementById("ff-valor").value);
   if (!desc || isNaN(valor) || valor <= 0) { alert("Preencha descrição e valor."); return; }
@@ -1198,19 +1354,15 @@ async function salvarEdicaoFixo() {
     fimAno = a; fimMes = m;
   }
 
-  const rows = await supa(sFrom("gastos_fixos").select("quem_pagou").eq("id", _editandoId).limit(1));
+  const rows = await supa(sFrom("gastos_fixos").select("quem_pagou").eq("id", _editandoFixoId).limit(1));
   const isEntrada = rows && rows[0] && (rows[0].quem_pagou === null || rows[0].quem_pagou === undefined);
 
   const upd = { descricao: desc, valor, fim_ano: fimAno, fim_mes: fimMes };
   if (!isEntrada) { upd.quem_pagou = fixoQuemSel; upd.categoria_id = fixoCatSel; }
 
-  await supa(sFrom("gastos_fixos").update(upd).eq("id", _editandoId).eq("usuario_id", USUARIO_ID));
+  await supa(sFrom("gastos_fixos").update(upd).eq("id", _editandoFixoId).eq("usuario_id", USUARIO_ID));
 
-  // restaura botão original
-  const btnSalvar = document.querySelector("#fixos-form .bsalvar");
-  btnSalvar.innerHTML = "<i class='ti ti-check'></i>Salvar fixo";
-  btnSalvar.onclick = salvarFixo;
-  _editandoId = null;
+  _editandoFixoId = null;
 
   abaFixos("lista");
   await renderAll();
