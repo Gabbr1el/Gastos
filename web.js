@@ -768,9 +768,18 @@ function itemHtml(g) {
       : (g.data_gasto ? new Date(g.data_gasto + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "fixo");
 
     const nomesMes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-    const terminoStr = isEntradaFixa
-      ? (g.fim_ano ? `até ${nomesMes[(g.fim_mes || 1) - 1]}/${g.fim_ano}` : "permanente")
-      : dia;
+
+    // calcula parcela atual e total para entradas fixas com duração por meses
+    let terminoStr;
+    if (isEntradaFixa && g.fim_ano) {
+      const totalMeses = (g.fim_ano - g.inicio_ano) * 12 + (g.fim_mes - g.inicio_mes) + 1;
+      const parcelaAtual = (anoSel - g.inicio_ano) * 12 + (mesSel + 1 - g.inicio_mes) + 1;
+      terminoStr = `Parcela: ${parcelaAtual}/${totalMeses}`;
+    } else if (isEntradaFixa) {
+      terminoStr = "permanente";
+    } else {
+      terminoStr = dia;
+    }
 
     const deleteFn = isEntradaFixa ? "deletarFixo" : "deletarEntrada";
 
@@ -811,6 +820,11 @@ function itemHtml(g) {
     ? (g.fim_ano ? ` · até ${nomesMesG[(g.fim_mes || 1) - 1]}/${g.fim_ano}` : " · permanente")
     : "";
 
+  // detecta sufixo de parcela na descrição, ex: "Mercado (2/6)"
+  const parcelaMatch = g.descricao ? g.descricao.match(/\((\d+\/\d+)\)$/) : null;
+  const parcelaStr = parcelaMatch ? ` · Parcela ${parcelaMatch[1]}` : "";
+  const descSemParcela = parcelaMatch ? g.descricao.replace(/\s*\(\d+\/\d+\)$/, "") : g.descricao;
+
   return `
     <div class="item">
       <div class="item-ico" style="background:${esc(c.cor)}22">
@@ -818,11 +832,11 @@ function itemHtml(g) {
       </div>
 
       <div class="item-info">
-        <div class="item-desc">${esc(g.descricao)}</div>
+        <div class="item-desc">${esc(descSemParcela)}</div>
         <div class="item-meta">
           <span class="badge ${g.quem_pagou === "eu" ? "meu" : "mae"}">${g.quem_pagou === "eu" ? "Meu" : "Mãe"}</span>
           ${isFixo ? `<span class="badge fixo">fixo</span>` : ""}
-          ${esc(c.nome)}${g.data_gasto ? " - " + dia : ""}${terminoGasto}
+          ${esc(c.nome)}${g.data_gasto ? " - " + dia : ""}${terminoGasto}${parcelaStr}
         </div>
       </div>
 
