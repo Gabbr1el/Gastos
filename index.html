@@ -83,10 +83,11 @@
       <div class="sec">categorias do mês</div>
       <div id="barras"></div>
 
+      <button class="btn-add" onclick="irPara('s-add')"><i class="ti ti-plus"></i>Registrar movimentação</button>
+
       <div class="sec">últimos</div>
       <div id="lista-rec"></div>
 
-      <button class="btn-add" onclick="irPara('s-add')"><i class="ti ti-plus"></i>Registrar movimentação</button>
     </div>
 
     <div class="screen" id="s-hist">
@@ -143,6 +144,22 @@
           <div class="qgrid">
             <button class="qbtn sel meu" id="ff-eu" onclick="fixoQuem('eu')">Eu</button>
             <button class="qbtn" id="ff-mae" onclick="fixoQuem('mae')">Mãe</button>
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="fl">Duração</label>
+          <div class="qgrid">
+            <button class="qbtn sel info" id="ff-perm" onclick="fixoDuracao('permanente')"><i class="ti ti-infinity" style="margin-right:4px"></i>Permanente</button>
+            <button class="qbtn" id="ff-meses" onclick="fixoDuracao('meses')"><i class="ti ti-calendar-event" style="margin-right:4px"></i>Por meses</button>
+          </div>
+          <div id="ff-meses-wrap" style="display:none;margin-top:10px">
+            <div class="parcelas-row">
+              <button class="parc-btn" onclick="mudaFixoMeses(-1)"><i class="ti ti-minus"></i></button>
+              <span id="ff-meses-val">1 mês</span>
+              <button class="parc-btn" onclick="mudaFixoMeses(1)"><i class="ti ti-plus"></i></button>
+            </div>
+            <div id="ff-meses-info" class="parc-info" style="display:none"></div>
           </div>
         </div>
 
@@ -218,6 +235,7 @@
       </div>
     </div>
   </div>
+
 
   <nav class="nav">
     <button class="nbtn active" id="nb-home" onclick="irPara('s-home')"><i class="ti ti-home"></i>Início</button>

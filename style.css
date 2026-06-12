@@ -86,7 +86,8 @@
     .nbtn.active{color:var(--text)}
     .nbtn i{font-size:22px}
     .erro-box{background:var(--danger-bg);color:var(--danger);padding:12px;border-radius:10px;font-size:13px;margin-bottom:12px}
-    .parcelas-row{display:flex;align-items:center;gap:14px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);padding:10px 14px}
-    .parc-btn{background:none;border:none;cursor:pointer;color:var(--text);font-size:20px;display:flex;align-items:center;padding:2px 6px}
-    #parc-val{font-size:18px;font-weight:600;flex:1;text-align:center}
+    .parcelas-row{display:flex;align-items:center;justify-content:center;gap:14px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);padding:10px 14px}
+    .parc-btn{background:none;border:none;cursor:pointer;color:var(--text);font-size:20px;display:flex;align-items:center;padding:2px 10px}
+    #parc-val,#ff-meses-val{font-size:18px;font-weight:600;min-width:80px;text-align:center}
     .parc-info{font-size:12px;color:var(--info);margin-top:6px;text-align:center}
+

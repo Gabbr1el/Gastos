@@ -21,10 +21,12 @@ let quemSel = "eu";
 let catSel = "alimentacao";
 let fixoQuemSel = "eu";
 let fixoCatSel = "moradia";
-let tipoMovSel = "saida";   // "saida" | "entrada"
-let tipoFixoSel = "gasto";  // "gasto" | "entrada"
-let histFiltro = "tudo";    // "tudo" | "gastos" | "entradas"
+let tipoMovSel = "saida";
+let tipoFixoSel = "gasto";
+let histFiltro = "tudo";
 let parcelasSel = 1;
+let fixoDuracaoSel = "permanente"; // "permanente" | "meses"
+let fixoMesesSel = 1;
 let mpTrigger = null;
 
 function configurado() {
@@ -49,22 +51,7 @@ if (configurado()) {
   });
 }
 
-// se configurado, ative subscrição Realtime para atualizar automaticamente
-if (typeof window !== 'undefined' && sb && sb.channel) {
-  try {
-    const ch = sb.channel('public:gastos')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'gastos' }, payload => {
-        // atualiza a UI quando houver mudanças no banco (INSERT/UPDATE/DELETE)
-        console.log('Realtime payload:', payload);
-        renderAll().catch(err => console.error('Erro ao atualizar via realtime', err));
-      })
-      .subscribe();
 
-    try { window._ch_gastos = ch; } catch(e){}
-  } catch(e) {
-    console.warn('Não foi possível criar channel realtime:', e);
-  }
-}
 
 function fmt(v) {
   v = Number(v || 0);
@@ -239,7 +226,7 @@ async function getEntradas() {
   try {
     const rows = await supa(
       sFrom('entradas')
-        .select('valor,ano,mes')
+        .select('valor,ano,mes,id,descricao,data_entrada')
         .eq('usuario_id', USUARIO_ID)
         .eq('ano', anoSel)
         .eq('mes', mesBanco())
@@ -359,7 +346,6 @@ async function irPara(id) {
   if (id !== "s-add") await renderAll();
   
   if (id === "s-add") {
-    // garante que categoria e quem pagou aparecem corretamente ao abrir
     selTipo(tipoMovSel);
     renderCatGrid("cat-grid", catSel, "selCat");
   }
@@ -377,6 +363,37 @@ function fixoQuem(q) {
   fixoQuemSel = q;
   document.getElementById("ff-eu").className = "qbtn" + (q === "eu" ? " sel meu" : "");
   document.getElementById("ff-mae").className = "qbtn" + (q === "mae" ? " sel mae" : "");
+}
+
+function fixoDuracao(modo) {
+  fixoDuracaoSel = modo;
+  document.getElementById("ff-perm").className = "qbtn" + (modo === "permanente" ? " sel info" : "");
+  document.getElementById("ff-meses").className = "qbtn" + (modo === "meses" ? " sel info" : "");
+  const wrap = document.getElementById("ff-meses-wrap");
+  if (wrap) wrap.style.display = modo === "meses" ? "block" : "none";
+  if (modo === "meses") atualizaFixoMesesInfo();
+}
+
+function mudaFixoMeses(d) {
+  fixoMesesSel = Math.max(1, Math.min(120, fixoMesesSel + d));
+  atualizaFixoMesesInfo();
+}
+
+function atualizaFixoMesesInfo() {
+  const el = document.getElementById("ff-meses-val");
+  if (el) el.textContent = fixoMesesSel === 1 ? "1 mês" : fixoMesesSel + " meses";
+
+  // calcular mês de término para mostrar ao usuário
+  const info = document.getElementById("ff-meses-info");
+  if (!info) return;
+
+  let fimMes = mesBanco() + fixoMesesSel - 1;
+  let fimAno = anoSel;
+  while (fimMes > 12) { fimMes -= 12; fimAno++; }
+
+  const nomesMes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  info.textContent = `Termina em ${nomesMes[fimMes - 1]}/${fimAno}`;
+  info.style.display = "block";
 }
 
 function renderCatGrid(cid, sel, fn) {
@@ -412,12 +429,14 @@ function abaFixos(aba) {
     document.getElementById("ff-cat-wrap").style.display = "block";
     document.getElementById("ff-quem-wrap").style.display = "block";
     document.getElementById("ff-desc").placeholder = "Ex: aluguel, Netflix...";
+    fixoDuracao(fixoDuracaoSel);
     renderCatGrid("ff-cat", fixoCatSel, "selFixoCat");
   } else if (aba === "add-entrada") {
     tipoFixoSel = "entrada";
     document.getElementById("ff-cat-wrap").style.display = "none";
     document.getElementById("ff-quem-wrap").style.display = "none";
     document.getElementById("ff-desc").placeholder = "Ex: salário, mesada...";
+    fixoDuracao(fixoDuracaoSel);
   }
 }
 
@@ -482,15 +501,15 @@ function renderListaHist() {
 
   let itens = [];
 
+  // Preserva tipo:"fixo" para entradas fixas; entradas manuais ficam como "entrada"
+  const entradasComTipo = entradasMes.map(e => ({ ...e, tipo: e.tipo || "entrada" }));
+
   if (histFiltro === "tudo") {
-    itens = [
-      ...entradasMes.map(e => ({ ...e, tipo: "entrada" })),
-      ...todosMes
-    ];
+    itens = [...entradasComTipo, ...todosMes];
   } else if (histFiltro === "gastos") {
     itens = todosMes;
   } else {
-    itens = entradasMes.map(e => ({ ...e, tipo: "entrada" }));
+    itens = entradasComTipo;
   }
 
   lh.innerHTML = itens.length === 0
@@ -498,7 +517,12 @@ function renderListaHist() {
     : itens.map(itemHtml).join("");
 }
 
+let _salvandoMovimento = false;
 async function salvarMovimento() {
+  if (_salvandoMovimento) return;
+  _salvandoMovimento = true;
+
+  try {
   const desc = document.getElementById("f-desc").value.trim();
   const valor = parseFloat(document.getElementById("f-valor").value);
 
@@ -511,16 +535,22 @@ async function salvarMovimento() {
 
   if (tipoMovSel === "entrada") {
     const data = `${anoSel}-${String(mesBanco()).padStart(2, "0")}-${String(diaHoje).padStart(2, "0")}`;
-    await supa(
-      sb.from("entradas").insert({
-        usuario_id: USUARIO_ID,
-        descricao: desc,
-        valor,
-        data_entrada: data,
-        ano: anoSel,
-        mes: mesBanco()
-      })
-    );
+    try {
+      await supa(
+        sb.from("entradas").insert({
+          usuario_id: USUARIO_ID,
+          descricao: desc,
+          valor,
+          data_entrada: data,
+          ano: anoSel,
+          mes: mesBanco()
+        })
+      );
+    } catch(e) {
+      const msg = e && e.message ? e.message : String(e);
+      alert("Erro ao salvar entrada: " + msg + "\n\nRode o fix_entradas.sql no Supabase SQL Editor.");
+      return;
+    }
   } else {
     // saída — insere 1 ou N parcelas em meses consecutivos
     const valorParcela = parcelasSel > 1 ? parseFloat((valor / parcelasSel).toFixed(2)) : valor;
@@ -562,6 +592,9 @@ async function salvarMovimento() {
   renderCatGrid("cat-grid", catSel, "selCat");
 
   await irPara("s-home");
+  } finally {
+    _salvandoMovimento = false;
+  }
 }
 
 async function deletarGasto(id) {
@@ -577,7 +610,12 @@ async function deletarGasto(id) {
   await renderAll();
 }
 
+let _salvandoFixo = false;
 async function salvarFixo() {
+  if (_salvandoFixo) return;
+  _salvandoFixo = true;
+
+  try {
   const desc = document.getElementById("ff-desc").value.trim();
   const valor = parseFloat(document.getElementById("ff-valor").value);
 
@@ -586,37 +624,41 @@ async function salvarFixo() {
     return;
   }
 
+  // calcular fim_ano / fim_mes se duração for por meses
+  let fimAno = null;
+  let fimMes = null;
+  if (fixoDuracaoSel === "meses") {
+    let m = mesBanco() + fixoMesesSel - 1;
+    let a = anoSel;
+    while (m > 12) { m -= 12; a++; }
+    fimAno = a;
+    fimMes = m;
+  }
+
+  const base = {
+    usuario_id: USUARIO_ID,
+    descricao: desc,
+    valor,
+    dia_vencimento: 1,
+    ativo: true,
+    inicio_ano: anoSel,
+    inicio_mes: mesBanco(),
+    fim_ano: fimAno,
+    fim_mes: fimMes
+  };
+
   if (tipoFixoSel === "entrada") {
-    // salva como entrada fixa na tabela entradas_fixas (se existir) ou diretamente em entradas
-    // como não há tabela entradas_fixas, vamos salvar em gastos_fixos com flag especial
-    // usando quem_pagou = 'entrada' e categoria_id = 'outros' como convenção
-    await supa(
-      sFrom("gastos_fixos").insert({
-        usuario_id: USUARIO_ID,
-        descricao: desc,
-        valor,
-        quem_pagou: "entrada",
-        categoria_id: "outros",
-        dia_vencimento: 1,
-        ativo: true,
-        inicio_ano: anoSel,
-        inicio_mes: mesBanco()
-      })
-    );
+    await supa(sFrom("gastos_fixos").insert({
+      ...base,
+      quem_pagou: null,
+      categoria_id: "outros"   // campo obrigatório no banco; entradas são identificadas por quem_pagou=null
+    }));
   } else {
-    await supa(
-      sFrom("gastos_fixos").insert({
-        usuario_id: USUARIO_ID,
-        descricao: desc,
-        valor,
-        quem_pagou: fixoQuemSel,
-        categoria_id: fixoCatSel,
-        dia_vencimento: 1,
-        ativo: true,
-        inicio_ano: anoSel,
-        inicio_mes: mesBanco()
-      })
-    );
+    await supa(sFrom("gastos_fixos").insert({
+      ...base,
+      quem_pagou: fixoQuemSel,
+      categoria_id: fixoCatSel
+    }));
   }
 
   document.getElementById("ff-desc").value = "";
@@ -624,10 +666,16 @@ async function salvarFixo() {
 
   fixoQuemSel = "eu";
   fixoCatSel = "moradia";
+  fixoDuracaoSel = "permanente";
+  fixoMesesSel = 1;
   fixoQuem("eu");
+  fixoDuracao("permanente");
 
   abaFixos("lista");
   await renderAll();
+  } finally {
+    _salvandoFixo = false;
+  }
 }
 
 async function deletarFixo(id) {
@@ -710,14 +758,21 @@ async function limparTudo() {
 }
 
 function itemHtml(g) {
-  const isEntrada = g.tipo === "entrada" || g.quem_pagou === "entrada";
+  const isEntradaFixa = g.tipo === "fixo" && (g.quem_pagou === null || g.quem_pagou === undefined);
+  const isEntradaManual = g.tipo === "entrada";
+  const isEntrada = isEntradaFixa || isEntradaManual;
 
   if (isEntrada) {
     const dia = g.data_entrada
       ? new Date(g.data_entrada + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
       : (g.data_gasto ? new Date(g.data_gasto + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "fixo");
 
-    const isFixo = g.tipo === "fixo";
+    const nomesMes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    const terminoStr = isEntradaFixa
+      ? (g.fim_ano ? `até ${nomesMes[(g.fim_mes || 1) - 1]}/${g.fim_ano}` : "permanente")
+      : dia;
+
+    const deleteFn = isEntradaFixa ? "deletarFixo" : "deletarEntrada";
 
     return `
       <div class="item">
@@ -728,12 +783,12 @@ function itemHtml(g) {
           <div class="item-desc">${esc(g.descricao)}</div>
           <div class="item-meta">
             <span class="badge entrada">entrada</span>
-            ${isFixo ? `<span class="badge fixo">fixo</span>` : ""}
-            ${dia !== "fixo" ? dia : "recorrente"}
+            ${isEntradaFixa ? `<span class="badge fixo">fixo</span>` : ""}
+            ${terminoStr}
           </div>
         </div>
-        <div class="item-val" style="color:var(--info)">+${fmt(g.valor)}</div>
-        <button class="item-del" onclick="${isFixo ? "deletarFixo" : "deletarEntrada"}(${g.id})">
+        <div class="item-val" style="color:var(--success)">+${fmt(g.valor)}</div>
+        <button class="item-del" onclick="${deleteFn}(${g.id})">
           <i class="ti ti-x"></i>
         </button>
       </div>
@@ -751,6 +806,11 @@ function itemHtml(g) {
     });
   }
 
+  const nomesMesG = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const terminoGasto = isFixo
+    ? (g.fim_ano ? ` · até ${nomesMesG[(g.fim_mes || 1) - 1]}/${g.fim_ano}` : " · permanente")
+    : "";
+
   return `
     <div class="item">
       <div class="item-ico" style="background:${esc(c.cor)}22">
@@ -762,11 +822,11 @@ function itemHtml(g) {
         <div class="item-meta">
           <span class="badge ${g.quem_pagou === "eu" ? "meu" : "mae"}">${g.quem_pagou === "eu" ? "Meu" : "Mãe"}</span>
           ${isFixo ? `<span class="badge fixo">fixo</span>` : ""}
-          ${esc(c.nome)}${g.data_gasto ? " - " + dia : ""}
+          ${esc(c.nome)}${g.data_gasto ? " - " + dia : ""}${terminoGasto}
         </div>
       </div>
 
-      <div class="item-val">${fmt(g.valor)}</div>
+      <div class="item-val" style="color:var(--danger)">${fmt(g.valor)}</div>
 
       <button class="item-del" onclick="${isFixo ? "deletarFixo" : "deletarGasto"}(${g.id})">
         <i class="ti ti-x"></i>
@@ -803,11 +863,11 @@ async function renderAll() {
   ]);
 
   const todosMes = [
-    ...fixosMes.filter(f => f.quem_pagou !== "entrada").map(f => ({ ...f, tipo: "fixo" })),
+    ...fixosMes.filter(f => f.quem_pagou !== null && f.quem_pagou !== undefined).map(f => ({ ...f, tipo: "fixo" })),
     ...variaveis.map(g => ({ ...g, tipo: "variavel" }))
   ];
 
-  const fixosEntradaMes = fixosMes.filter(f => f.quem_pagou === "entrada");
+  const fixosEntradaMes = fixosMes.filter(f => !f.quem_pagou);
 
   // soma entradas: manuais + entradas fixas do mês
   const somaEntradas = entradas.reduce((a, e) => a + Number(e.valor || 0), 0);
@@ -816,7 +876,7 @@ async function renderAll() {
 
   // cache para o filtro de histórico
   const entradasMes = [
-    ...entradas,
+    ...entradas.map(e => ({ ...e, tipo: "entrada" })),
     ...fixosEntradaMes.map(f => ({ ...f, tipo: "fixo" }))
   ];
   _cacheHistData = { todosMes, entradasMes };
